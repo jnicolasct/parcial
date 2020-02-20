@@ -18,6 +18,7 @@ public class MoneyLaundering
     private TransactionReader transactionReader;
     private int amountOfFilesTotal;
     private AtomicInteger amountOfFilesProcessed;
+    private static int hilos = 5;
 
     public MoneyLaundering()
     {
@@ -26,13 +27,13 @@ public class MoneyLaundering
         amountOfFilesProcessed = new AtomicInteger();
     }
 
-    public void processTransactionData()
+    public void processTransactionData(int inicio, int fin)
     {
         amountOfFilesProcessed.set(0);
         List<File> transactionFiles = getTransactionFileList();
         amountOfFilesTotal = transactionFiles.size();
-        for(File transactionFile : transactionFiles)
-        {            
+        for(int w=inicio; w<fin;w++) {
+        	File transactionFile = transactionFiles.get(w);
             List<Transaction> transactions = transactionReader.readTransactionsFromFile(transactionFile);
             for(Transaction transaction : transactions)
             {
@@ -63,8 +64,23 @@ public class MoneyLaundering
         System.out.println(getBanner());
         System.out.println(getHelp());
         MoneyLaundering moneyLaundering = new MoneyLaundering();
-        Thread processingThread = new Thread(() -> moneyLaundering.processTransactionData());
-        processingThread.start();
+        int tamano = moneyLaundering.getTransactionFileList().size();
+        int division = tamano/hilos;
+        int i = 0;
+        int j = division;
+        for (int k=0; k<hilos;k++) {
+        	int in = i;
+        	int cont = j;
+        	if (k == hilos-1) {
+        		Thread processingThread = new Thread(() -> moneyLaundering.processTransactionData(in,tamano));
+                processingThread.start();  
+        	}
+        	Thread processingThread = new Thread(() -> moneyLaundering.processTransactionData(in,cont));
+            processingThread.start();     	
+        	i = j;
+        	j += division;
+        }
+
         while(true)
         {
             Scanner scanner = new Scanner(System.in);
@@ -73,7 +89,7 @@ public class MoneyLaundering
             {
                 System.exit(0);
             }
-
+ 
             String message = "Processed %d out of %d files.\nFound %d suspect accounts:\n%s";
             List<String> offendingAccounts = moneyLaundering.getOffendingAccounts();
             String suspectAccounts = offendingAccounts.stream().reduce("", (s1, s2)-> s1 + "\n"+s2);
